@@ -280,7 +280,8 @@ Column {
         { value: "auto", label: "Highest (auto)" },
         { value: "session", label: "5-hour (session)" },
         { value: "weekly", label: "7-day (weekly)" },
-        { value: "monthly", label: "Monthly (monthly)" }
+        { value: "monthly", label: "Monthly (monthly)" },
+        { value: "both", label: "Every metric (both)" }
       ]
       foreground: root.foreground
       fontFamily: root.fontFamily

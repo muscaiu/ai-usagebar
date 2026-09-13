@@ -1,4 +1,20 @@
-# Omarchy Quattro plugin
+# Omarchy Quattro plugin (fork)
+
+This is a fork of [akitaonrails/ai-usagebar](https://github.com/akitaonrails/ai-usagebar)'s
+Omarchy plugin only - the Rust binary and every other frontend are unchanged
+upstream. Differences from upstream, all inside `omarchy/`:
+
+- The bar and panel show **headroom remaining**, not consumption elapsed
+  (e.g. "69%" left rather than "31%" used).
+- Each shown value is colored independently on its own headroom (amber
+  under 50% remaining, red under 20%), instead of one severity for the
+  whole chip.
+- `barWindow: "both"` shows **every** metric a vendor reports, not just a
+  hardcoded session/weekly pair - so Cursor's "Cursor Models" / "Other
+  Models" pools (and Z.AI's three, MiniMax's four, ...) all show up
+  side by side instead of collapsing to one auto-picked value.
+- The provider mark stays a neutral color regardless of alarm state; the
+  value text already carries that signal.
 
 This is the native Omarchy 4 frontend for ai-usagebar. It runs inside
 Quattro's long-lived Quickshell process and uses the shared Omarchy UI kit for
@@ -16,7 +32,7 @@ first, then install this repository as the plugin:
 
 ```bash
 omarchy pkg aur add ai-usagebar-bin
-omarchy plugin add https://github.com/akitaonrails/ai-usagebar.git --enable
+omarchy plugin add https://github.com/muscaiu/ai-usagebar.git --enable
 ```
 
 To use AI Usage in place of Quattro's default Agents widget, disable the stock
@@ -32,8 +48,8 @@ button and loads `Panel.qml` inside the same plugin. Update or remove it with
 the normal plugin commands:
 
 ```bash
-omarchy plugin update akitaonrails.ai-usagebar
-omarchy plugin remove akitaonrails.ai-usagebar
+omarchy plugin update muscaiu.ai-usagebar
+omarchy plugin remove muscaiu.ai-usagebar
 ```
 
 ## Controls
@@ -55,8 +71,8 @@ omarchy plugin remove akitaonrails.ai-usagebar
   `h`/`l` or Left/Right switches provider, `j`/`k` or Up/Down scrolls, `r`,
   Enter, or Space refreshes, Tab moves to the neighboring bar panel, and Esc
   closes.
-- Shell: `omarchy-shell shell summon akitaonrails.ai-usagebar '{}'` opens the
-  panel and `omarchy-shell shell hide akitaonrails.ai-usagebar` closes it.
+- Shell: `omarchy-shell shell summon muscaiu.ai-usagebar '{}'` opens the
+  panel and `omarchy-shell shell hide muscaiu.ai-usagebar` closes it.
 
 The panel keeps the last successful report visible when a refresh fails and
 labels it accordingly. Provider-level stale cache responses and hard errors
@@ -96,27 +112,27 @@ can be changed through Omarchy's bar UI or CLI:
 
 ```bash
 # Show only one entry. Use an id printed by `ai-usagebar usage --json`.
-omarchy bar set akitaonrails.ai-usagebar provider openai
-omarchy bar set akitaonrails.ai-usagebar provider anthropic@work
+omarchy bar set muscaiu.ai-usagebar provider openai
+omarchy bar set muscaiu.ai-usagebar provider anthropic@work
 
 # Empty means all configured entries, with switching in the panel.
-omarchy bar set akitaonrails.ai-usagebar provider ''
+omarchy bar set muscaiu.ai-usagebar provider ''
 
 # Numeric values need --json so shell.json stores a number.
-omarchy bar set akitaonrails.ai-usagebar refreshIntervalSec 300 --json
+omarchy bar set muscaiu.ai-usagebar refreshIntervalSec 300 --json
 
 # Booleans also need --json. The default is true for drop-in compatibility.
-omarchy bar set akitaonrails.ai-usagebar showValue false --json
+omarchy bar set muscaiu.ai-usagebar showValue false --json
 
 # Opt in to the Waybar-style provider tag. The default is false.
-omarchy bar set akitaonrails.ai-usagebar showProvider true --json
+omarchy bar set muscaiu.ai-usagebar showProvider true --json
 
 # Show every configured provider's icon and usage at once. The default is false.
-omarchy bar set akitaonrails.ai-usagebar showAll true --json
+omarchy bar set muscaiu.ai-usagebar showAll true --json
 
 # Which quota window the top bar shows: auto (highest, the historical
 # default), session (5-hour), weekly (7-day), or monthly. The default is auto.
-omarchy bar set akitaonrails.ai-usagebar barWindow session
+omarchy bar set muscaiu.ai-usagebar barWindow session
 ```
 
 The refresh interval is clamped to 30–3600 seconds. The `provider` setting

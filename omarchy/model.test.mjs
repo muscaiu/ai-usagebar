@@ -32,7 +32,7 @@ assert.equal(showAllSchema.defaultValue, false);
 assert.equal(manifest.barWidget.defaults.barWindow, 'auto');
 const barWindowSchema = manifest.barWidget.schema.find(row => row.key === 'barWindow');
 assert.equal(barWindowSchema.type, 'enum');
-assert.deepEqual(barWindowSchema.options, ['auto', 'session', 'weekly', 'monthly']);
+assert.deepEqual(barWindowSchema.options, ['auto', 'session', 'weekly', 'monthly', 'both']);
 assert.equal(barWindowSchema.defaultValue, 'auto');
 // The normalizer must accept every option the manifest offers, or the
 // dropdown would write a value the panel silently ignores.
@@ -64,7 +64,10 @@ assert.match(panelSource, /Model\.normalizeBarWindow\(setting\("barWindow",\s*"a
 // summary (bar label/chips) is pinned, while panel rows and alert state
 // keep the auto headline.
 assert.match(panelSource, /Model\.headline\(entry,\s*barWindow\)/);
-assert.match(panelSource, /Model\.headline\(item,\s*barWindow\)/);
+// The bar/tooltip/hero-pill echoes go through headlineText, which shows
+// headroom remaining rather than the raw elapsed headline.
+assert.match(panelSource, /Model\.headlineText\(item,\s*barWindow\)/);
+assert.match(panelSource, /summaryText:\s*entry \? Model\.headlineText\(entry,\s*barWindow\) : ""/);
 assert.match(panelSource, /Model\.isAlarming\(entry\)/);
 assert.match(panelSource, /Model\.anyAlarming\(visibleEntries\)/);
 assert.doesNotMatch(panelSource, /autoSummary/);
@@ -85,8 +88,11 @@ assert.match(panelSource, /height:\s*visible\s*\?\s*childrenRect\.height\s*:\s*0
 assert.match(panelSource, /width:\s*implicitWidth/);
 assert.doesNotMatch(panelSource, /orientation:\s*ListView\.Horizontal/);
 assert.match(panelSource, /providerList\.forceLayout\(\)/);
-assert.match(panelSource, /foreground:\s*root\.entryAlarming\s*\?\s*root\.urgent/);
+// Local preference: the hero mark stays neutral regardless of alarm state -
+// the row values (headroom-remaining, colored) already carry that signal.
+assert.match(panelSource, /foreground:\s*root\.foreground\s*\n\s*fontFamily:\s*root\.fontFamily\s*\n\s*fontSize:\s*Style\.font\.display/);
 assert.doesNotMatch(panelSource, /BrandMark[\s\S]*foreground:\s*root\.alarming\s*\?/m);
+assert.doesNotMatch(panelSource, /foreground:\s*root\.entryAlarming\s*\?/);
 const brandMarkSource = fs.readFileSync(new URL('./BrandMark.qml', import.meta.url), 'utf8');
 assert.match(brandMarkSource, /icons\/" \+ root\.brand/);
 assert.ok(fs.existsSync(new URL('./icons/claude.svg', import.meta.url)));
@@ -204,31 +210,31 @@ const priorWidgetSettings = {
   provider: '', refreshIntervalSec: 90, futureSetting: {keep: true}, id: 'stale-id'
 };
 const selectedWidgetSettings = model.settingsWithSelectedEntry(
-  priorWidgetSettings, 'akitaonrails.ai-usagebar', 'openrouter@personal');
+  priorWidgetSettings, 'muscaiu.ai-usagebar', 'openrouter@personal');
 assert.deepEqual(JSON.parse(JSON.stringify(selectedWidgetSettings)), {
-  id: 'akitaonrails.ai-usagebar',
+  id: 'muscaiu.ai-usagebar',
   provider: '',
   refreshIntervalSec: 90,
   futureSetting: {keep: true},
   lastSelectedEntryId: 'openrouter@personal'
 });
 assert.equal(priorWidgetSettings.lastSelectedEntryId, undefined);
-assert.equal(model.settingsWithSelectedEntry({}, 'akitaonrails.ai-usagebar', ''), null);
+assert.equal(model.settingsWithSelectedEntry({}, 'muscaiu.ai-usagebar', ''), null);
 const hiddenValueSettings = model.settingsWithOverrides(
-  selectedWidgetSettings, 'akitaonrails.ai-usagebar', {showValue: false});
+  selectedWidgetSettings, 'muscaiu.ai-usagebar', {showValue: false});
 assert.equal(hiddenValueSettings.showValue, false);
 assert.equal(hiddenValueSettings.lastSelectedEntryId, 'openrouter@personal');
 assert.equal(selectedWidgetSettings.showValue, undefined);
 const shownProviderSettings = model.settingsWithOverrides(
-  hiddenValueSettings, 'akitaonrails.ai-usagebar', {showProvider: true});
+  hiddenValueSettings, 'muscaiu.ai-usagebar', {showProvider: true});
 assert.equal(shownProviderSettings.showProvider, true);
 assert.equal(shownProviderSettings.showValue, false);
 assert.equal(shownProviderSettings.lastSelectedEntryId, 'openrouter@personal');
 assert.equal(hiddenValueSettings.showProvider, undefined);
-const protectedSettings = model.settingsWithOverrides({}, 'akitaonrails.ai-usagebar', {
+const protectedSettings = model.settingsWithOverrides({}, 'muscaiu.ai-usagebar', {
   id: 'wrong-id', constructor: 'ignored', prototype: 'ignored', showValue: false
 });
-assert.equal(protectedSettings.id, 'akitaonrails.ai-usagebar');
+assert.equal(protectedSettings.id, 'muscaiu.ai-usagebar');
 assert.notEqual(protectedSettings.constructor, 'ignored');
 assert.equal(protectedSettings.prototype, undefined);
 assert.equal(model.booleanSetting(undefined, true), true);
@@ -313,12 +319,12 @@ const strip = model.barChips([claudeChip, openaiChip], openaiChip, true, true, f
 assert.equal(strip.length, 2);
 assert.equal(strip[0].brand, 'claude.svg');
 assert.equal(strip[1].brand, 'openai.svg');
-assert.equal(strip[0].label, '29%');
-assert.equal(strip[1].label, '95%');
+assert.equal(strip[0].label, '71%');
+assert.equal(strip[1].label, '5%');
 const one = model.barChips([claudeChip, openaiChip], openaiChip, false, true, false, false, false, false);
 assert.equal(one.length, 1);
 assert.equal(one[0].brand, 'openai.svg');
-assert.equal(model.barStrip([claudeChip, openaiChip], false, false, true, false, false), '󰚩  29%  󱢆  95%');
+assert.equal(model.barStrip([claudeChip, openaiChip], false, false, true, false, false), '󰚩  71%  󱢆  5%');
 
 // The codes come from Rust's VendorId::short_name via the report; the vendor
 // half of the machine id only stands in for a binary that predates the field.
@@ -578,8 +584,8 @@ assert.equal(model.isAlarming(twoWindow), false);
 assert.equal(model.headline(legacyWeekly, 'weekly').severity, 'critical');
 assert.equal(model.isAlarming(legacyWeekly), true);
 const pinnedChips = model.barChips([twoWindow, threeWindow], twoWindow, true, true, false, false, false, false, 'session');
-assert.deepEqual(Array.from(pinnedChips.map(chip => chip.label)), ['44%', '0%']);
-assert.equal(model.barStrip([twoWindow, threeWindow], false, false, true, false, false, 'weekly'), '󰚩  59%  󰚩  18%');
+assert.deepEqual(Array.from(pinnedChips.map(chip => chip.label)), ['56%', '100%']);
+assert.equal(model.barStrip([twoWindow, threeWindow], false, false, true, false, false, 'weekly'), '󰚩  41%  󰚩  82%');
 // Scoped 7-day pools carry window_secs, so the weekly pin selects them
 // (max among weekly candidates, not first).
 const scopedWeekly = model.parseReport(JSON.stringify({entries: [{
@@ -660,7 +666,7 @@ assert.equal(model.isAlarming(divergent), true);
 // Chip alert state follows highest, never the pin: pinned low label with a
 // critical hidden window still alarms.
 const divergentChip = model.barChips([divergent], divergent, false, true, false, false, false, false, 'session')[0];
-assert.equal(divergentChip.label, '10%');
+assert.equal(divergentChip.label, '90%');
 assert.equal(divergentChip.alarming, true);
 assert.equal(model.normalizeBarWindow('highest'), 'auto');
 assert.equal(model.normalizeBarWindow('max'), 'auto');
@@ -678,7 +684,7 @@ assert.equal(model.normalizeBarWindow('30d'), 'monthly');
 assert.equal(model.normalizeBarWindow('monthly-cycle'), 'monthly');
 assert.equal(model.normalizeBarWindow(null), 'auto');
 assert.deepEqual(Array.from(pinnedChips.map(chip => chip.alarming)), [false, false]);
-assert.equal(model.barStrip([twoWindow], false, false, true, false, false, 'monthly'), '󰚩  59%');
+assert.equal(model.barStrip([twoWindow], false, false, true, false, false, 'monthly'), '󰚩  41%');
 const bogusChips = model.barChips([twoWindow, threeWindow], twoWindow, true, true, false, false, false, false, 'bogus');
 const autoChips = model.barChips([twoWindow, threeWindow], twoWindow, true, true, false, false, false, false);
 assert.deepEqual(Array.from(bogusChips.map(chip => chip.label)), Array.from(autoChips.map(chip => chip.label)));
@@ -714,6 +720,27 @@ assert.equal(model.headline(sessionMax, 'session').text, '70%');
 assert.equal(model.headline(twoWindow, '5h').text, '44%');
 assert.equal(model.headline(twoWindow, 'shortest').text, '44%');
 assert.equal(model.headline(secsEdge, 'session').text, '40%');
-assert.equal(model.barStrip([threeWindow], false, false, true, false, false, 'bogus'), '󰚩  81%');
+assert.equal(model.barStrip([threeWindow], false, false, true, false, false, 'bogus'), '󰚩  19%');
+
+// barWindow "both": every metric the entry reports, not just ones that look
+// like a session/weekly split. Claude/Codex-shaped entries (window_secs-
+// tagged 5h/7d) still show two remaining values...
+assert.equal(model.bothWindowText(twoWindow), '56%/41%');
+// ...and so does a vendor whose two pools are unrelated to time windows
+// entirely, like Cursor's "Cursor Models" / "Other Models" (same reset
+// date, no window_secs, neither label matches the session/weekly regex;
+// `cursorLike` above is 80% / 20% elapsed). This is the regression this
+// generalization exists to prevent: matching only session/weekly used to
+// collapse Cursor down to a single auto value instead of showing both pools.
+assert.equal(model.bothWindowText(cursorLike), '20%/80%');
+assert.deepEqual(Array.from(model.barValueSegments(cursorLike, 'both').map(s => s.text)),
+  ['20%', '/', '80%']);
+// The worse pool (20% remaining) grades and colors the whole chip...
+assert.equal(model.barValueSeverity(cursorLike, 'both'), 'warning');
+// ...but each segment still carries only its own severity.
+assert.deepEqual(Array.from(model.barValueSegments(cursorLike, 'both').map(s => s.severity)),
+  ['warning', '', '']);
+// A three-pool vendor (Z.AI-shaped) shows all three, not just two.
+assert.equal(model.bothWindowText(zaiReal), '29%/88%/60%');
 
 console.log('Omarchy model tests passed');

@@ -237,7 +237,7 @@ function barChip(entry, showValue, showProvider, barWindow) {
   var summary = ""
   if (showValue) {
     if (entry.error) summary = "!"
-    else summary = autoTextSafe(headline(entry, barWindow).text).trim()
+    else summary = autoTextSafe(headlineText(entry, barWindow)).trim()
   }
   if (provider === "") return summary === "" ? icon : icon + "  " + summary
   return summary === "" ? icon + "  " + provider : icon + "  " + provider + " " + summary
@@ -325,13 +325,16 @@ function brandFileFor(provider) {
 function barChips(entries, selected, showAll, showValue, showProvider, loading, alarming, vertical, barWindow) {
   var list = Array.isArray(entries) ? entries : []
   if (vertical) {
-    return [{ brand: "", icon: alarming ? "󰅙" : "󰚩", label: "", alarming: alarming === true }]
+    return [{ brand: "", icon: alarming ? "󰅙" : "󰚩", label: "", alarming: alarming === true,
+      providerLabel: "", valueSegments: [] }]
   }
   if (loading && list.length === 0) {
-    return [{ brand: "", icon: "󰚩", label: "…", alarming: false }]
+    return [{ brand: "", icon: "󰚩", label: "…", alarming: false,
+      providerLabel: "", valueSegments: [{ text: "…", severity: "" }] }]
   }
   if (list.length === 0) {
-    return [{ brand: "", icon: alarming ? "󰅙" : "󰚩", label: "", alarming: alarming === true }]
+    return [{ brand: "", icon: alarming ? "󰅙" : "󰚩", label: "", alarming: alarming === true,
+      providerLabel: "", valueSegments: [] }]
   }
   var shown = showAll ? list : list.filter(function(entry) { return selected && entry.id === selected.id })
   if (shown.length === 0) shown = [list[0]]
@@ -341,7 +344,7 @@ function barChips(entries, selected, showAll, showValue, showProvider, loading, 
     var label = ""
     if (showProvider) label = providerShort(entry)
     if (showValue) {
-      var summary = entry.error ? "!" : autoTextSafe(headline(entry, barWindow).text).trim()
+      var summary = entry.error ? "!" : autoTextSafe(headlineText(entry, barWindow)).trim()
       label = label === "" ? summary : (summary === "" ? label : label + " " + summary)
     }
     var brand = brandIconFile(entry)
@@ -351,7 +354,17 @@ function barChips(entries, selected, showAll, showValue, showProvider, loading, 
       label: label,
       // Alert state always follows the highest-percent window, never the
       // pinned one: barWindow changes only the displayed value.
-      alarming: isAlarming(entry)
+      alarming: isAlarming(entry),
+      // Local preference, not the report's own severity: low headroom on
+      // whatever window(s) the chip is actually showing turns the value
+      // yellow/red. "both" grades on the worse (lowest) of the pair - kept
+      // for callers that just want one severity for the whole chip.
+      severity: barValueSeverity(entry, barWindow),
+      // Per-number coloring: one segment per value actually shown (plus a
+      // plain "/" separator between two, for "both"), each graded on its
+      // own headroom instead of the chip's worst side.
+      providerLabel: showProvider ? providerShort(entry) : "",
+      valueSegments: showValue ? barValueSegments(entry, barWindow) : []
     })
   }
   return chips
@@ -370,7 +383,143 @@ function normalizeBarWindow(value) {
   if (text === "weekly" || text === "week" || text === "7d" || text === "7-day"
       || text === "weekly-7d") return "weekly"
   if (text === "monthly" || text === "month" || text === "30d" || text === "monthly-cycle") return "monthly"
+  if (text === "both" || text === "session+weekly" || text === "5h+7d") return "both"
   return "auto"
+}
+
+// Every quota metric an entry reports, in report order. For barWindow
+// "both" this is deliberately not "session + weekly": Cursor's two pools
+// are "Cursor Models" / "Other Models" sharing one reset date, not a
+// 5h/7d split, and Z.AI/MiniMax report three or four pools of their own.
+// Showing every metric the entry actually has, rather than only the ones
+// that match the session/weekly label-and-duration heuristic, is what
+// makes "both" mean the same thing for all of them: everything this
+// provider tracks, not just the two window shapes Claude and Codex use.
+function allMetricSections(entry) {
+  var sections = entry && Array.isArray(entry.sections) ? entry.sections : []
+  var metrics = []
+  for (var i = 0; i < sections.length; i++) {
+    if (sections[i] && sections[i].type === "metric") metrics.push(sections[i])
+  }
+  return metrics
+}
+
+// The bar shows headroom remaining, not consumption elapsed: "69%" left on
+// an entry the report grades as 31% used. Balance-style metrics (a dollar
+// figure, not a quota percent) are left as the report states them.
+function remainingText(metric) {
+  if (!metric) return ""
+  if (/balance/i.test(metric.label) && metric.value !== "") return metric.value
+  return (100 - metric.percent) + "%"
+}
+
+// The same headroom the label shows, as a plain number, for severity math.
+// null for a balance-style metric, which has no percent to grade.
+function remainingPercent(metric) {
+  if (!metric || /balance/i.test(metric.label)) return null
+  return 100 - metric.percent
+}
+
+// Meter-fill fraction (0..1) matching what remainingText shows: drains as
+// headroom shrinks. Balance-style metrics have no headroom to invert, so
+// their meter keeps reading the report's own percent, unchanged.
+function remainingFraction(metric) {
+  var remaining = remainingPercent(metric)
+  if (remaining !== null) return remaining / 100
+  return metric ? Number(metric.percent) / 100 : 0
+}
+
+function bothWindowText(entry) {
+  var metrics = allMetricSections(entry)
+  var parts = []
+  for (var i = 0; i < metrics.length; i++) {
+    var text = remainingText(metrics[i])
+    if (text !== "") parts.push(text)
+  }
+  if (parts.length === 0) return headline(entry, "auto").text
+  return parts.join("/")
+}
+
+function headlineText(entry, barWindow) {
+  if (normalizeBarWindow(barWindow) === "both") return bothWindowText(entry)
+  var best = selectMetric(entry, barWindow)
+  if (best) return remainingText(best)
+  return headline(entry, barWindow).text
+}
+
+// Local bar-chip coloring, independent of the report's own severity (which
+// grades high consumption as worse). This grades the headroom remaining
+// that the chip actually displays: under 20% left -> critical (red), under
+// 50% left -> warning (yellow), else normal.
+function usageBarSeverity(remaining) {
+  var n = Number(remaining)
+  if (!isFinite(n)) return ""
+  if (n < 20) return "critical"
+  if (n < 50) return "warning"
+  return ""
+}
+
+// Color.qml only ever exposes foreground/background/accent/muted/urgent
+// from colors.toml - themes carry no "yellow"/"color3" role for it to pick
+// up, so a theme-driven warning color isn't available. This amber is picked
+// to stay readable against both light and dark foregrounds instead, and
+// lives here once so the bar and the panel rows match.
+function warningColor() {
+  return "#f5a623"
+}
+
+// Severity for exactly what the chip displays: every metric shown for
+// barWindow "both" (graded on the worst/lowest remaining), or the single
+// headline metric otherwise.
+function barValueSeverity(entry, barWindow) {
+  if (!entry || entry.error) return ""
+  if (normalizeBarWindow(barWindow) === "both") {
+    var metrics = allMetricSections(entry)
+    var remains = []
+    for (var i = 0; i < metrics.length; i++) {
+      var remaining = remainingPercent(metrics[i])
+      if (remaining !== null) remains.push(remaining)
+    }
+    if (remains.length === 0) return ""
+    return usageBarSeverity(Math.min.apply(null, remains))
+  }
+  var best = selectMetric(entry, barWindow)
+  var remaining = remainingPercent(best)
+  if (remaining === null) return ""
+  return usageBarSeverity(remaining)
+}
+
+function metricSeverity(metric) {
+  var remaining = remainingPercent(metric)
+  return remaining === null ? "" : usageBarSeverity(remaining)
+}
+
+// One colorable segment per value the chip actually shows, so "both" mode
+// can color each metric independently instead of tinting the whole
+// "69%/92%" string by its worse side. A plain "/" sits between value
+// segments; an error collapses to a single hard-red "!" segment.
+function barValueSegments(entry, barWindow) {
+  if (!entry) return []
+  if (entry.error) return [{ text: "!", severity: "critical" }]
+  if (normalizeBarWindow(barWindow) === "both") {
+    var metrics = allMetricSections(entry)
+    var segments = []
+    for (var i = 0; i < metrics.length; i++) {
+      var text = autoTextSafe(remainingText(metrics[i])).trim()
+      if (text === "") continue
+      if (segments.length > 0) segments.push({ text: "/", severity: "" })
+      segments.push({ text: text, severity: metricSeverity(metrics[i]) })
+    }
+    if (segments.length === 0) {
+      var fallback = autoTextSafe(headline(entry, "auto").text).trim()
+      if (fallback !== "") segments.push({ text: fallback, severity: "" })
+    }
+    return segments
+  }
+  var best = selectMetric(entry, barWindow)
+  if (best) return [{ text: autoTextSafe(remainingText(best)).trim(), severity: metricSeverity(best) }]
+  var fallbackText = autoTextSafe(headline(entry, barWindow).text).trim()
+  return fallbackText === "" ? [] : [{ text: fallbackText, severity: "" }]
 }
 
 // The two window lengths the report states exactly. Same values as the Rust

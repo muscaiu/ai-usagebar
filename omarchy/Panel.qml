@@ -10,7 +10,7 @@ import "Model.js" as Model
 // its button as this panel's anchor; collection stays in the Rust binary.
 Panel {
   id: root
-  moduleName: "akitaonrails.ai-usagebar"
+  moduleName: "muscaiu.ai-usagebar"
   manageIpc: false
 
   property var anchorItem: null
@@ -54,6 +54,10 @@ Panel {
     return String(entry.fetched_at || "")
   }
   readonly property var summary: Model.headline(entry, barWindow)
+  // Headroom remaining, not consumption elapsed - the same number the bar
+  // chip shows. summary above stays the raw elapsed headline; only .text
+  // consumers (hero pill, bar label, tooltip) switch to this.
+  readonly property string summaryText: entry ? Model.headlineText(entry, barWindow) : ""
   // barWindow pins the bar value and its echoes (hero detail, tooltip).
   // Panel rows and alert state keep the historical highest-percent headline,
   // matching every other frontend (Waybar class, KDE isAlarming, TUI).
@@ -237,7 +241,7 @@ Panel {
     if (showAll)
       return Model.barStrip(visibleEntries, alarming, vertical, showValue, showProvider, loading, barWindow)
     return Model.barLabel(alarming, vertical, showValue, loading,
-      entry !== null, summary.text, showProvider ? Model.providerShort(entry) : "",
+      entry !== null, summaryText, showProvider ? Model.providerShort(entry) : "",
       Model.providerIcon(entry))
   }
 
@@ -247,7 +251,7 @@ Panel {
       for (var i = 0; i < visibleEntries.length; i++) {
         var item = visibleEntries[i]
         var bit = Model.providerName(item)
-        var value = Model.autoTextSafe(Model.headline(item, barWindow).text).trim()
+        var value = Model.autoTextSafe(Model.headlineText(item, barWindow)).trim()
         if (value !== "") bit += " · " + value
         if (item.stale) bit += " · cached"
         chips.push(bit)
@@ -256,7 +260,7 @@ Panel {
     }
     if (!entry) return Model.autoTextSafe(statusMessage() || "AI usage")
     var text = Model.providerName(entry)
-    if (summary.text !== "") text += " · " + Model.autoTextSafe(summary.text)
+    if (summaryText !== "") text += " · " + Model.autoTextSafe(summaryText)
     if (entry.stale) text += " · cached"
     return text
   }
@@ -374,7 +378,7 @@ Panel {
             meta: root.settingsOpen ? "Display, provider & API keys" : root.heroMeta()
             detail: root.settingsOpen
               ? "Existing configuration stays in place until you save."
-              : (root.entry && root.summary.text !== "Ready" ? Model.autoTextSafe(root.summary.text) : "")
+              : (root.entry && root.summaryText !== "Ready" ? Model.autoTextSafe(root.summaryText) : "")
             foreground: root.foreground
             fontFamily: root.fontFamily
 
@@ -382,7 +386,9 @@ Panel {
               BrandMark {
                 brand: root.settingsOpen ? "" : Model.brandIconFile(root.entry)
                 fallback: root.settingsOpen ? "󰒓" : Model.providerIcon(root.entry)
-                foreground: root.entryAlarming ? root.urgent : root.foreground
+                // Provider mark stays neutral; the row values already carry
+                // the red/yellow signal, so the icon no longer doubles it.
+                foreground: root.foreground
                 fontFamily: root.fontFamily
                 fontSize: Style.font.display
               }
@@ -607,7 +613,10 @@ Panel {
   component MetricRow: Column {
     id: metricRow
     property var row: null
-    readonly property bool critical: row && row.severity === "critical"
+    // Local headroom-remaining grading, same thresholds and same color as
+    // the bar chip - not the report's own severity, which grades elapsed
+    // consumption instead.
+    readonly property string severity: row ? Model.metricSeverity(row) : ""
     readonly property string detailText: Model.metricDetail(row)
     readonly property string resetText: row ? Model.formatReset(row.reset_at, root.nowMs) : ""
 
@@ -633,10 +642,11 @@ Panel {
 
       Text {
         id: metricValue
-        text: metricRow.row && metricRow.row.value !== ""
-          ? metricRow.row.value : (metricRow.row ? metricRow.row.percent + "%" : "")
+        text: metricRow.row ? Model.remainingText(metricRow.row) : ""
         textFormat: Text.PlainText
-        color: metricRow.critical ? root.urgent : root.foreground
+        color: metricRow.severity === "critical" ? root.urgent
+          : metricRow.severity === "warning" ? Model.warningColor()
+          : root.foreground
         font.family: root.fontFamily
         font.pixelSize: Style.font.caption
         font.bold: true
@@ -661,8 +671,10 @@ Panel {
         anchors.verticalCenter: meterTrack.verticalCenter
         height: meterTrack.height
         radius: meterTrack.radius
-        width: meterTrack.width * root.clamp(metricRow.row ? metricRow.row.percent / 100 : 0, 0, 1)
-        color: metricRow.critical ? root.urgent : root.foreground
+        width: meterTrack.width * root.clamp(Model.remainingFraction(metricRow.row), 0, 1)
+        color: metricRow.severity === "critical" ? root.urgent
+          : metricRow.severity === "warning" ? Model.warningColor()
+          : root.foreground
 
         Behavior on width {
           NumberAnimation { duration: 160; easing.type: Easing.OutCubic }

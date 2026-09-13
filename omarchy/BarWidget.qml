@@ -2,13 +2,14 @@ import QtQuick
 import Quickshell
 import qs.Commons
 import qs.Ui
+import "Model.js" as Model
 
 // Quattro bar entry point. The popup is loaded separately so the object in
 // the bar slot owns shell routing while Panel.qml remains focused on report
 // collection and presentation.
 BarWidget {
   id: root
-  moduleName: "akitaonrails.ai-usagebar"
+  moduleName: "muscaiu.ai-usagebar"
 
   readonly property var panelItem: panelLoader.item
   readonly property bool opened: panelItem ? panelItem.opened === true : false
@@ -105,29 +106,57 @@ BarWidget {
         model: root.panelItem ? root.panelItem.barChips : []
 
         Row {
+          id: chipItem
           spacing: Style.space(4)
+          property var chip: modelData
 
           BrandMark {
             anchors.verticalCenter: parent.verticalCenter
-            brand: modelData.brand || ""
-            fallback: modelData.icon || "󰚩"
-            foreground: modelData.alarming && button.useActiveColor
-              ? button.activeColor
-              : button.foreground
+            brand: chipItem.chip.brand || ""
+            fallback: chipItem.chip.icon || "󰚩"
+            // Provider mark stays neutral; the value segments already carry
+            // the red/yellow signal, so the icon no longer doubles it.
+            foreground: button.foreground
             fontFamily: button.fontFamily
             fontSize: button.fontSize
           }
 
-          Text {
-            visible: modelData.label !== ""
+          // Provider code (if shown) plus one colored segment per value the
+          // chip displays - independently graded, so with barWindow "both"
+          // only the side that's actually low turns yellow/red rather than
+          // tinting the whole "69%/92%" pair by its worse side.
+          Row {
             anchors.verticalCenter: parent.verticalCenter
-            textFormat: Text.PlainText
-            text: modelData.label
-            color: modelData.alarming && button.useActiveColor
-              ? button.activeColor
-              : button.foreground
-            font.family: button.fontFamily
-            font.pixelSize: button.fontSize
+            spacing: 0
+            visible: chipItem.chip.providerLabel !== "" || valueRepeater.count > 0
+
+            Text {
+              visible: chipItem.chip.providerLabel !== ""
+              textFormat: Text.PlainText
+              text: chipItem.chip.providerLabel + (valueRepeater.count > 0 ? " " : "")
+              color: button.foreground
+              font.family: button.fontFamily
+              font.pixelSize: button.fontSize
+            }
+
+            // Each value's own headroom decides its color - never the
+            // chip-wide `alarming` flag, which is one report-level severity
+            // for the whole entry and would otherwise tint every segment
+            // the same regardless of which window is actually low.
+            Repeater {
+              id: valueRepeater
+              model: chipItem.chip.valueSegments || []
+
+              Text {
+                textFormat: Text.PlainText
+                text: modelData.text
+                color: modelData.severity === "critical" ? Color.urgent
+                  : modelData.severity === "warning" ? Model.warningColor()
+                  : button.foreground
+                font.family: button.fontFamily
+                font.pixelSize: button.fontSize
+              }
+            }
           }
         }
       }
