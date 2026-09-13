@@ -139,10 +139,16 @@ command:
 
 ```bash
 omarchy pkg aur add ai-usagebar-bin &&
-  omarchy plugin add https://github.com/akitaonrails/ai-usagebar.git --enable
+  omarchy plugin add https://github.com/muscaiu/ai-usagebar.git --enable
 ```
 
-If you found the plugin through [plugins.omarchy.org](https://plugins.omarchy.org/plugin.html?id=akitaonrails.ai-usagebar),
+This is a fork of [akitaonrails/ai-usagebar](https://github.com/akitaonrails/ai-usagebar) -
+the `ai-usagebar` binary and every other frontend (macOS, Windows, GNOME,
+KDE, TUI) are unchanged upstream; only the Omarchy plugin under `omarchy/`
+differs. See [`omarchy/README.md`](omarchy/README.md#omarchy-quattro-plugin-fork)
+for exactly what's different.
+
+If you found the plugin through [plugins.omarchy.org](https://plugins.omarchy.org/plugin.html?id=muscaiu.ai-usagebar),
 its **Install** button copies the `omarchy plugin add` line on its own. That
 installs the widget but not the binary it reads, and the bar will say
 `ai-usagebar is not installed` until you run the `omarchy pkg aur add` half too.
@@ -625,8 +631,8 @@ plugin alone does not install its binary dependency.
 Update or remove the plugin without editing `shell.json` by hand:
 
 ```bash
-omarchy plugin update akitaonrails.ai-usagebar
-omarchy plugin remove akitaonrails.ai-usagebar
+omarchy plugin update muscaiu.ai-usagebar
+omarchy plugin remove muscaiu.ai-usagebar
 ```
 
 The widget reads the providers and accounts already enabled in
