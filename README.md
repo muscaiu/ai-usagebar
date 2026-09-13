@@ -1,5 +1,11 @@
 # ai-usagebar
 
+> **This is a fork of [akitaonrails/ai-usagebar](https://github.com/akitaonrails/ai-usagebar).**
+> Only the Omarchy Quattro plugin (under [`omarchy/`](omarchy/)) differs from
+> upstream — see [`omarchy/README.md`](omarchy/README.md#omarchy-quattro-plugin-fork)
+> for exactly what changed. The native binary and every other frontend below
+> (macOS, Windows, GNOME, KDE, TUI) are unmodified upstream code.
+
 Native Omarchy Quattro panel, Waybar widget, and tabbed TUI for AI plan usage across **Claude**, **Codex/ChatGPT**, **GitHub Copilot**, **Z.AI (GLM)**, **OpenRouter**, **DeepSeek**, **Kimi**, **Nous Research**, **OpenCode Go**, **Command Code**, and other supported AI coding services.
 
 ai-usagebar began as a Rust port of
