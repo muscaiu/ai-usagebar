@@ -8,7 +8,7 @@ compatible. It keeps claudebar's Pango tooltip, Omarchy theme detection, and
 flock-protected OAuth refresh while adding more providers and a testable Rust
 codebase.
 
-![Native Omarchy Quattro panel showing Z.AI quota usage, reset countdowns, and provider tabs](screenshots/omarchy-quattro-panel.png)
+![Native Omarchy Quattro panel showing this fork's Claude tab: Session (5h) at 13% remaining in red, Weekly (7d) at 86% remaining in amber, and Claude/Codex/Cursor provider tabs](screenshots/omarchy-quattro-panel.png)
 
 ![Native Omarchy Quattro settings page showing the primary-provider selector and API-key controls](screenshots/omarchy-quattro-settings.png)
 
