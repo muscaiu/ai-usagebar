@@ -156,6 +156,27 @@ function filteredEntries(entries, configuredProvider) {
   return list.filter(function(entry) { return baseProvider(entry.id).toLowerCase() === wanted })
 }
 
+// Fixed display order for the top bar / panel list: OpenAI, then Anthropic,
+// then Cursor. Any other enabled provider keeps its original (report) order
+// and is appended after these three. Multiple accounts of one provider (e.g.
+// "openai@work") sort together under that provider's slot and keep their
+// relative order.
+var TOP_BAR_PROVIDER_ORDER = ["openai", "anthropic", "cursor"]
+
+function orderEntries(entries) {
+  var list = Array.isArray(entries) ? entries : []
+  var withIndex = list.map(function(entry, i) { return { entry: entry, i: i } })
+  withIndex.sort(function(a, b) {
+    var ra = TOP_BAR_PROVIDER_ORDER.indexOf(baseProvider(a.entry.id))
+    var rb = TOP_BAR_PROVIDER_ORDER.indexOf(baseProvider(b.entry.id))
+    if (ra < 0) ra = TOP_BAR_PROVIDER_ORDER.length
+    if (rb < 0) rb = TOP_BAR_PROVIDER_ORDER.length
+    if (ra !== rb) return ra - rb
+    return a.i - b.i
+  })
+  return withIndex.map(function(pair) { return pair.entry })
+}
+
 function selectedIndex(entries, selectedId) {
   var list = Array.isArray(entries) ? entries : []
   for (var i = 0; i < list.length; i++) if (list[i].id === selectedId) return i

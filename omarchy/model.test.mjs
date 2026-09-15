@@ -182,6 +182,11 @@ assert.equal(model.providerName(parsed.entries[1]), 'Codex');
 assert.deepEqual(Array.from(model.filteredEntries(parsed.entries, '')).map(entry => entry.id), ['anthropic@work', 'openai']);
 assert.deepEqual(Array.from(model.filteredEntries(parsed.entries, 'anthropic')).map(entry => entry.id), ['anthropic@work']);
 assert.deepEqual(Array.from(model.filteredEntries(parsed.entries, 'openai')).map(entry => entry.id), ['openai']);
+assert.deepEqual(Array.from(model.orderEntries(parsed.entries)).map(entry => entry.id), ['openai', 'anthropic@work']);
+assert.deepEqual(
+  Array.from(model.orderEntries([{id: 'cursor'}, {id: 'anthropic@work'}, {id: 'openai'}, {id: 'zai'}]))
+    .map(entry => entry.id),
+  ['openai', 'anthropic@work', 'cursor', 'zai']);
 assert.equal(model.selectedIndex(parsed.entries, 'openai'), 1);
 assert.equal(model.selectedIndex(parsed.entries, 'missing'), 0);
 assert.equal(model.preferredEntryId(parsed.entries, parsed.primary), 'openai');

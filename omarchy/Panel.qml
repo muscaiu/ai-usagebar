@@ -46,7 +46,7 @@ Panel {
   readonly property bool showProvider: Model.booleanSetting(setting("showProvider", false), false)
   readonly property bool showAll: Model.booleanSetting(setting("showAll", false), false)
   readonly property string barWindow: Model.normalizeBarWindow(setting("barWindow", "auto"))
-  readonly property var visibleEntries: Model.filteredEntries(entries, configuredProvider)
+  readonly property var visibleEntries: Model.orderEntries(Model.filteredEntries(entries, configuredProvider))
   readonly property int entryIndex: Model.selectedIndex(visibleEntries, selectedEntryId)
   readonly property var entry: entryIndex >= 0 ? visibleEntries[entryIndex] : null
   readonly property string entryFetchedAt: {
